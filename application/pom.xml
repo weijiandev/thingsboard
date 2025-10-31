@@ -77,6 +77,10 @@
             <artifactId>rule-engine-components</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.thingsboard</groupId>
+            <artifactId>rule-chain-library</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.thingsboard.common.transport</groupId>
             <artifactId>transport-api</artifactId>
         </dependency>

@@ -15,19 +15,27 @@
  */
 package org.thingsboard.server.service.rule;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.thingsboard.common.util.JacksonUtil;
 import org.thingsboard.rule.engine.flow.TbRuleChainInputNode;
 import org.thingsboard.rule.engine.flow.TbRuleChainInputNodeConfiguration;
 import org.thingsboard.rule.engine.flow.TbRuleChainOutputNode;
+import org.thingsboard.server.cluster.TbClusterService;
 import org.thingsboard.server.common.data.EntityType;
 import org.thingsboard.server.common.data.User;
 import org.thingsboard.server.common.data.audit.ActionType;
 import org.thingsboard.server.common.data.edge.Edge;
+import org.thingsboard.server.common.data.exception.ThingsboardErrorCode;
 import org.thingsboard.server.common.data.exception.ThingsboardException;
 import org.thingsboard.server.common.data.id.EdgeId;
+import org.thingsboard.server.common.data.id.EntityId;
+import org.thingsboard.server.common.data.id.EntityIdFactory;
 import org.thingsboard.server.common.data.id.RuleChainId;
 import org.thingsboard.server.common.data.id.RuleNodeId;
 import org.thingsboard.server.common.data.id.TenantId;
@@ -41,13 +49,15 @@ import org.thingsboard.server.common.data.rule.RuleChainType;
 import org.thingsboard.server.common.data.rule.RuleChainUpdateResult;
 import org.thingsboard.server.common.data.rule.RuleNode;
 import org.thingsboard.server.common.data.rule.RuleNodeUpdateResult;
+import org.thingsboard.server.dao.model.ModelConstants;
 import org.thingsboard.server.dao.relation.RelationService;
 import org.thingsboard.server.dao.rule.RuleChainService;
 import org.thingsboard.server.queue.util.TbCoreComponent;
 import org.thingsboard.server.service.component.ComponentDiscoveryService;
-import org.thingsboard.server.service.entitiy.AbstractTbEntityService;
+import org.thingsboard.server.service.entitiy.TbLogEntityActionService;
 import org.thingsboard.server.service.install.InstallScripts;
 import org.thingsboard.server.service.security.model.SecurityUser;
+import org.thingsboard.server.service.sync.vc.EntitiesVersionControlService;
 import org.thingsboard.server.utils.TbNodeUpgradeUtils;
 
 import java.util.ArrayList;
@@ -66,12 +76,18 @@ import java.util.stream.Collectors;
 @Service
 @TbCoreComponent
 @Slf4j
-public class DefaultTbRuleChainService extends AbstractTbEntityService implements TbRuleChainService {
+public class DefaultTbRuleChainService implements TbRuleChainService {
 
     private final RuleChainService ruleChainService;
     private final RelationService relationService;
     private final InstallScripts installScripts;
     private final ComponentDiscoveryService componentDiscoveryService;
+    private final TbLogEntityActionService logEntityActionService;
+    private final TbClusterService tbClusterService;
+
+    @Lazy
+    @Autowired(required = false)
+    private EntitiesVersionControlService entitiesVersionControlService;
 
     @Override
     public Set<String> getRuleChainOutputLabels(TenantId tenantId, RuleChainId ruleChainId) {
@@ -426,6 +442,37 @@ public class DefaultTbRuleChainService extends AbstractTbEntityService implement
 
     private boolean isRuleNode(RuleNode ruleNode, Class<?> clazz) {
         return ruleNode != null && ruleNode.getType().equals(clazz.getName());
+    }
+
+    private <T> T checkNotNull(T reference) throws ThingsboardException {
+        return checkNotNull(reference, "Requested item wasn't found!");
+    }
+
+    private <T> T checkNotNull(T reference, String notFoundMessage) throws ThingsboardException {
+        if (reference == null) {
+            throw new ThingsboardException(notFoundMessage, ThingsboardErrorCode.ITEM_NOT_FOUND);
+        }
+        return reference;
+    }
+
+    private <I extends EntityId> I emptyId(EntityType entityType) {
+        return (I) EntityIdFactory.getByTypeAndUuid(entityType, ModelConstants.NULL_UUID);
+    }
+
+    private ListenableFuture<UUID> autoCommit(User user, EntityId entityId) {
+        if (entitiesVersionControlService != null) {
+            return entitiesVersionControlService.autoCommit(user, entityId);
+        } else {
+            return Futures.immediateFailedFuture(new RuntimeException("Operation not supported!"));
+        }
+    }
+
+    private ListenableFuture<UUID> autoCommit(User user, EntityType entityType, List<UUID> entityIds) {
+        if (entitiesVersionControlService != null) {
+            return entitiesVersionControlService.autoCommit(user, entityType, entityIds);
+        } else {
+            return Futures.immediateFailedFuture(new RuntimeException("Operation not supported!"));
+        }
     }
 
 }
