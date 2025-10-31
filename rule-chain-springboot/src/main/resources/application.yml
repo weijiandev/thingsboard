@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: rule-chain-springboot
+server:
+  port: 0

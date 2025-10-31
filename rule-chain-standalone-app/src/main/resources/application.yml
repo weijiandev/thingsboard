@@ -1,0 +1,18 @@
+spring:
+  application:
+    name: tb-rule-chain-standalone
+  profiles:
+    active: install
+
+server:
+  port: 0
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+plugins:
+  scan_packages:
+    - org.thingsboard.rule.engine

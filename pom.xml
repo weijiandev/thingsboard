@@ -153,6 +153,8 @@
         <module>netty-mqtt</module>
         <module>common</module>
         <module>rule-engine</module>
+        <module>rule-chain-library</module>
+        <module>rule-chain-standalone-app</module>
         <module>dao</module>
         <module>edqs</module>
         <module>transport</module>
